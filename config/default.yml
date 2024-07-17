@@ -1,0 +1,34 @@
+run_name: 'MIDSB'
+
+dataset: 'voicebank'
+
+scorer_backbone: 'ncsnpp_base'
+denoiser_backbone: 'ncsnpp_base'
+
+beta: 2.0e-2
+bridge_type: 'VP'
+condition: 'none'
+
+denoiser_training_strategy: 'frozen_denoiser'
+denoiser_loss_weight: 0.0
+loss_weight_type: 'constant'
+
+learning_rate: 1.0e-4
+batch_size: 16
+evaluate_batch_size: 16
+patience: 20
+seed: 10
+
+num_epoch: 1000
+ema_rate: 0.999
+optimizer: 'Adam'
+num_workers: 2
+sample_rate: 16000
+
+t_min: 3.0e-2
+t_max: 1
+gradient_accumulation_steps: 1
+
+logging_per_step: 10
+
+work_dir: 'runs'
