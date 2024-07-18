@@ -357,13 +357,13 @@ class DiffusionBridge():
                     self.save()  # self.save(epoch)
                     Logger.info(
                         f'「{time.strftime("%m-%d %H:%M:%S", time.localtime())}」Epoch {epoch} - History |{progress_visualize(valid_loss_history, sample_evenly=False)}| Train Loss = {scaler_format(train_loss_per_epoch, 4)}, Valid Loss = {scaler_format(valid_loss, 4)} (best: {scaler_format(best_valid_loss, 4)} in Epoch {best_epoch}), '
-                        f'PESQ = {scaler_format(valid_metrics["pesq"], 2)}(val)/{scaler_format(test_metrics["pesq"], 2)}(test), SI-SDR = {scaler_format(valid_metrics["si_sdr"], 2)}(val)/{scaler_format(test_metrics["si_sdr"], 2)}(test)')
+                        f'PESQ = {scaler_format(valid_metrics["PESQ"], 2)}(val)/{scaler_format(test_metrics["PESQ"], 2)}(test), SI-SDR = {scaler_format(valid_metrics["SI_SDR"], 2)}(val)/{scaler_format(test_metrics["SI_SDR"], 2)}(test)')
                     Logger.info(f'Save checkpoint to \033[95m{os.path.abspath(self.config.run_path)}\033[0m.')
                 else:
                     earlystop_counter += 1
                     Logger.info(
                         f'「{time.strftime("%m-%d %H:%M:%S", time.localtime())}」Epoch {epoch} - History |{progress_visualize(valid_loss_history, sample_evenly=False)}| Train Loss = {scaler_format(train_loss_per_epoch, 4)}, Valid Loss = {scaler_format(valid_loss, 4)} (best: {scaler_format(best_valid_loss, 4)} in Epoch {best_epoch}), '
-                        f'PESQ = {scaler_format(valid_metrics["pesq"], 2)}(val)/{scaler_format(test_metrics["pesq"], 2)}(test), SI-SDR = {scaler_format(valid_metrics["si_sdr"], 2)}(val)/{scaler_format(test_metrics["si_sdr"], 2)}(test) | '
+                        f'PESQ = {scaler_format(valid_metrics["PESQ"], 2)}(val)/{scaler_format(test_metrics["PESQ"], 2)}(test), SI-SDR = {scaler_format(valid_metrics["SI_SDR"], 2)}(val)/{scaler_format(test_metrics["SI_SDR"], 2)}(test) | '
                         f'Early Stopping: {earlystop_counter}/{self.config.patience}')
                     if earlystop_counter >= self.config.patience:
                         Logger.info(f"Early stop after {epoch} epoch(es)")
