@@ -101,6 +101,7 @@ class DiffusionBridge():
                 self.optimizer = optim.Adam(self.parameters(), lr=self.config.learning_rate)
             elif self.config.optimizer == 'AdamW':
                 self.optimizer = optim.AdamW(self.parameters(), lr=self.config.learning_rate)
+            else:
                 raise NotImplementedError(f'Optimizer {self.config.optimizer} not supported yet!')
 
             self.amp = self.config.get('amp', False)
@@ -315,11 +316,11 @@ class DiffusionBridge():
                     accumulation_loss = 0
                 num_step += 1
 
-            train_loss_per_epoch = train_loss_per_epoch / len(train_dataloader)
-            if self.local_rank == 0 and self.config.wandb_log:
-                wandb.log({'epoch': epoch, 'train/loss_per_epoch': train_loss_per_epoch})
 
             if self.local_rank == 0:
+                train_loss_per_epoch = train_loss_per_epoch / len(train_dataloader)
+                if self.config.wandb_log:
+                    wandb.log({'epoch': epoch, 'train/loss_per_epoch': train_loss_per_epoch})
                 # valid
                 self.ema.store(self.parameters())  # store current params in EMA
                 self.ema.copy_to(self.parameters())  # copy EMA parameters over current params for evaluation
@@ -384,27 +385,30 @@ class DiffusionBridge():
         else:
             n_samples = min(n_samples, len(dataset))
 
-        pesq_fn, estoi_fn, si_sdr_fn = MetricRegister.fetch('pesq'), MetricRegister.fetch('estoi'), MetricRegister.fetch('si_sdr')
-        m_pesq, m_estoi, m_si_sdr = 0.0, 0.0, 0.0
+        metrics = MetricRegister.fetch(['pesq', 'estoi', 'si_sdr'])
 
+        result = {}
         for i in tqdm(range(0, n_samples), desc=f'Evaluate Metrics {n_samples}/{len(dataset)}', leave=False, ncols=200):
             x, y = dataset[i * (len(dataset) // (n_samples - 1))]
 
             x_bar, _, _ = self.enhancement(y, num_step=num_step, sampling_method=sampling_method, ot_ode=self.config.ot_ode)
             clean_sig, enhanced_sig = x.cpu().squeeze().numpy(), x_bar.type(torch.float32).cpu().squeeze().numpy()
 
-            m_pesq += pesq_fn(ref_wav=clean_sig, deg_wav=enhanced_sig, sample_rate=self.config.sample_rate)
-            m_estoi += estoi_fn(ref_wav=clean_sig, deg_wav=enhanced_sig, sample_rate=self.config.sample_rate)
-            m_si_sdr += si_sdr_fn(ref_wav=clean_sig, deg_wav=enhanced_sig, sample_rate=self.config.sample_rate)
+            for metric in metrics.values():
+                metric_res = metric.compute(ref_wav=clean_sig, deg_wav=enhanced_sig, sample_rate=self.config.sample_rate)
+                for item in metric_res.keys():
+                    if item not in result.keys():
+                        result[item] = 0.0
+                    result[item] += metric_res[item]
 
-        m_pesq, m_estoi, m_si_sdr = m_pesq / n_samples, m_estoi / n_samples, m_si_sdr / n_samples
-        result = {'pesq': m_pesq, 'estoi': m_estoi, 'si_sdr': m_si_sdr}
 
-        log_dict = {f'{subset}/{name}': metric for name, metric in result.items()}
-        if epoch is not None:
-            log_dict['epoch'] = epoch
+        result = { k: v/n_samples for k,v in result.items()}
+
 
         if self.config.wandb_log:
+            log_dict = {f'{subset}/{name}': metric for name, metric in result.items()}
+            if epoch is not None:
+                log_dict['epoch'] = epoch
             wandb.log(log_dict)
 
         return result
