@@ -65,6 +65,8 @@ if __name__ == '__main__':
     parser.add_argument("--eval_ot_ode", action="store_true", help="Whether to enable OT-ODE evaluation.")
     parser.add_argument("--max_workers", type=int, default=8, help='Max number of workers for calculating the metrics.')
 
+    parser.add_argument('--gpu', type=int, default=0,help="GPU index for inference")
+
     args = parser.parse_args()
 
     dataset_params = read_config_from_yaml(config_path="config/dataset.yml")
@@ -79,9 +81,9 @@ if __name__ == '__main__':
     else:
         raise ValueError("Please specify a dataset or noisy path")
 
-
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
     eval_config = {
-        "run_path": os.path.join(default_config.work_dir, args.run_name),
+        "run_path": os.path.join(default_config.run_dir, args.run_name),
         "checkpoint_name": "best.pt",
         "num_step": args.num_step,
         "sampling_method": args.sampling_method,
@@ -89,11 +91,11 @@ if __name__ == '__main__':
         "overwrite": args.overwrite,
         "subset": args.subset,
         "eval_ot_ode": args.eval_ot_ode,
-        "device": "cuda:0",
+        "device": torch.device('cuda:0'),
         "reverse": args.reverse,
         "calc_metrics": args.calc_metrics,
         "sample_rate": default_config.sample_rate,
-        "output_dir": os.path.join('results', args.run_name),
+        "output_dir": os.path.join(default_config.output_dir, args.run_name),
         "max_workers": args.max_workers
     }
     config = read_config_from_yaml(config_path=os.path.join(eval_config['run_path'], 'config.yml'))

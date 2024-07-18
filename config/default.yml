@@ -31,4 +31,5 @@ gradient_accumulation_steps: 1
 
 logging_per_step: 10
 
-work_dir: 'runs'
+run_dir: 'runs'
+output_dir: 'results'

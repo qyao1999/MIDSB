@@ -49,7 +49,7 @@ class DiffusionBridge():
             # wandb
             if not self.is_resume:
                 self.config.run_name = self.config.run_name + '_' + datetime.now().strftime('%m%d%H%M')
-                self.config.run_path = os.path.join(self.config.work_dir, self.config.run_name)
+                self.config.run_path = os.path.join(self.config.run_dir, self.config.run_name)
                 os.makedirs(self.config.run_path, exist_ok=True)
                 self.config.wandb_id = wandb.util.generate_id()
 
