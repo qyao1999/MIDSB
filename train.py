@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument('--beta', type=float, default=default_config.beta,
                         help="Value for the noise schedule 'Beta'")
     parser.add_argument('--bridge_type', type=str, default=default_config.bridge_type,
-                        help="Training strategy of discriminator")
+                        help="Type of bridge")
     parser.add_argument('--condition', type=str, default=default_config.condition,
                         help="Type of conditioning")
     parser.add_argument('--no_mean_inverting', action='store_true',
