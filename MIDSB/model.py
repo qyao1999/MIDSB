@@ -2,26 +2,21 @@ import os
 import time
 from datetime import datetime
 
-import numpy as np
 import torch
 import wandb
-
-from backbone.ncsnpp.ncsnpp import pad_spec
-from .sdes import VP_DiffusionBridgeSDE, VE_DiffusionBridgeSDE
-
 from torch import optim
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DistributedSampler
 from torch_ema import ExponentialMovingAverage
 from tqdm import tqdm
 
-from .dataset import ComplexSpec, STFTUtil
-from utils.config import Config, read_config_from_yaml
-from utils.log import progress_visualize, ProcessBar, Logger
-from utils.common import seed_everything, scaler_format
-
 from backbone.registry import BackboneRegister
 from evaluate.registry import MetricRegister
+from utils.common import seed_everything, scaler_format
+from utils.config import Config, read_config_from_yaml
+from utils.log import progress_visualize, ProcessBar, Logger
+from .dataset import ComplexSpec, STFTUtil
+from .sdes import VP_DiffusionBridgeSDE, VE_DiffusionBridgeSDE
 
 
 class DiffusionBridge():
@@ -85,7 +80,7 @@ class DiffusionBridge():
 
         # Denoiser
         if self.config.denoiser_training_strategy != 'none':
-            self.denoiser = BackboneRegister.fetch(self.config.scorer_backbone)(input_channels=2, discriminative=True)
+            self.denoiser = BackboneRegister.fetch(self.config.denoiser_backbone)(input_channels=2, discriminative=True)
             self.denoiser.to(self.device)
             if self.is_train and not self.is_resume and self.config.denoiser_training_strategy in ['frozen_denoiser', 'pretrained_denoiser']:
                 denoiser_checkpoint_path = os.path.join('pretrained_denoiser', self.config.dataset, f'denoiser_{self.config.denoiser_backbone}.pt')
@@ -134,11 +129,10 @@ class DiffusionBridge():
 
         self.t_max, self.t_min = self.config.t_max, self.config.t_min
 
-        if self.is_train and torch.distributed.is_initialized() :
+        if self.is_train and torch.distributed.is_initialized():
             self.model = DDP(self.model, device_ids=[local_rank], output_device=local_rank)
             if self.config.denoiser != 'none':
                 self.denoiser = DDP(self.denoiser, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
-
 
         self._reduce_op = lambda *args, **kwargs: 0.5 * torch.sum(*args, **kwargs)
 
@@ -159,8 +153,8 @@ class DiffusionBridge():
         if not self.is_train:
             return {'model': self.model.state_dict()}
 
-        model_state_dict  = self.model.module.state_dict() if isinstance(self.model, DDP) else self.model.state_dict()
-        denoiser_state_dict = self.denoiser.module.state_dict()  if isinstance(self.denoiser, DDP) else self.denoiser.state_dict()
+        model_state_dict = self.model.module.state_dict() if isinstance(self.model, DDP) else self.model.state_dict()
+        denoiser_state_dict = self.denoiser.module.state_dict() if isinstance(self.denoiser, DDP) else self.denoiser.state_dict()
         state = {'ema': self.ema.state_dict(), 'model': model_state_dict, 'optimizer': self.optimizer.state_dict()}
         if self.config.denoiser_training_strategy != 'none':
             state['denoiser'] = denoiser_state_dict
@@ -243,7 +237,6 @@ class DiffusionBridge():
                     return score_loss, {"train/score_loss": score_loss.item()}
 
         return _step_fn
-
 
     def train_dataloader(self, ):
         train_dataset = ComplexSpec(dataset=self.config.dataset, subset='train', shuffle_spec=True, return_spec=True, dummy=self.config.dummy)
@@ -391,7 +384,7 @@ class DiffusionBridge():
         else:
             n_samples = min(n_samples, len(dataset))
 
-        pesq_fn, estoi_fn, si_sdr_fn  = MetricRegister.fetch('pesq'), MetricRegister.fetch('estoi'), MetricRegister.fetch('si_sdr')
+        pesq_fn, estoi_fn, si_sdr_fn = MetricRegister.fetch('pesq'), MetricRegister.fetch('estoi'), MetricRegister.fetch('si_sdr')
         m_pesq, m_estoi, m_si_sdr = 0.0, 0.0, 0.0
 
         for i in tqdm(range(0, n_samples), desc=f'Evaluate Metrics {n_samples}/{len(dataset)}', leave=False, ncols=200):
@@ -432,6 +425,7 @@ class DiffusionBridge():
 
         global NFE
         NFE = 0
+
         @torch.no_grad()
         def pred_x0_fn(xt, timestep):
             global NFE

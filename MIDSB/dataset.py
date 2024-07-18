@@ -1,13 +1,14 @@
-from glob import glob
 import os
+from glob import glob
 
 import numpy as np
 import torch
-from torch import nn
-import torchaudio
-from utils.config import read_config_from_yaml
-from torch.utils.data import Dataset
 import torch.nn.functional as F
+import torchaudio
+from torch.utils.data import Dataset
+
+from utils.config import read_config_from_yaml
+
 
 def get_window(window_type, window_length):
     if window_type == 'sqrthann':

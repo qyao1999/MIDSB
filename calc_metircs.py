@@ -9,7 +9,6 @@ from soundfile import read
 from tabulate import tabulate
 from tqdm import tqdm
 
-from evaluate.metrics import *
 from utils.log import Logger
 
 
