@@ -2,15 +2,15 @@ run_name: 'MIDSB'
 
 dataset: 'voicebank'
 
-scorer_backbone: 'ncsnpp_base'
-denoiser_backbone: 'ncsnpp_base'
+generator_backbone: 'ncsnpp_base'
+discriminator_backbone: 'ncsnpp_base'
 
 beta: 2.0e-2
 bridge_type: 'VP'
 condition: 'none'
 
-denoiser_training_strategy: 'frozen_denoiser'
-denoiser_loss_weight: 0.0
+discriminator_training_strategy: 'frozen_discriminator'
+discriminator_loss_weight: 0.0
 loss_weight_type: 'constant'
 
 learning_rate: 1.0e-4

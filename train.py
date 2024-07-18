@@ -19,15 +19,15 @@ def parse_args():
 
     parser.add_argument('--dataset', type=str, default=default_config.dataset,
                         help="Dataset to use for training and evaluation")
-    parser.add_argument('--scorer_backbone', type=str, default=default_config.scorer_backbone,
-                        help="Backbone architecture for the scorer")
-    parser.add_argument('--denoiser_backbone', type=str, default=default_config.denoiser_backbone,
-                        help="Backbone architecture for the denoiser")
+    parser.add_argument('--generator_backbone', type=str, default=default_config.generator_backbone,
+                        help="Backbone architecture for the generator")
+    parser.add_argument('--discriminator_backbone', type=str, default=default_config.discriminator_backbone,
+                        help="Backbone architecture for the discriminator")
 
     parser.add_argument('--beta', type=float, default=default_config.beta,
                         help="Value for the noise schedule 'Beta'")
     parser.add_argument('--bridge_type', type=str, default=default_config.bridge_type,
-                        help="Training strategy of denoiser")
+                        help="Training strategy of discriminator")
     parser.add_argument('--condition', type=str, default=default_config.condition,
                         help="Type of conditioning")
     parser.add_argument('--no_mean_inverting', action='store_true',
@@ -35,10 +35,10 @@ def parse_args():
     parser.add_argument('--ot_ode', action='store_true',
                         help="Whether to use optimal transport ODE")
 
-    parser.add_argument('--denoiser_training_strategy', type=str, default=default_config.denoiser_training_strategy,
-                        help="Training strategy of denoiser")
-    parser.add_argument('--denoiser_loss_weight', type=float, default=default_config.denoiser_loss_weight,
-                        help="Weight for the denoiser loss term")
+    parser.add_argument('--discriminator_training_strategy', type=str, default=default_config.discriminator_training_strategy,
+                        help="Training strategy of discriminator")
+    parser.add_argument('--discriminator_loss_weight', type=float, default=default_config.discriminator_loss_weight,
+                        help="Weight for the discriminator loss term")
     parser.add_argument('--loss_weight_type', type=str, default=default_config.loss_weight_type,
                         help="Type of loss weight calculation")
 
@@ -71,7 +71,7 @@ def parse_args():
 
     assert args.condition in ['none', 'y', 'mean', 'both'], 'unsupported condition strategy'
     assert args.bridge_type in ['VP', 'VE'], 'unsupported bridge type'
-    assert args.denoiser_training_strategy in ['frozen_denoiser', 'pretrained_denoiser', 'joint_training'], 'unsupported denoiser training strategy'
+    assert args.discriminator_training_strategy in ['frozen_discriminator', 'pretrained_discriminator', 'joint_training'], 'unsupported discriminator training strategy'
     assert args.loss_weight_type == 'constant' or args.loss_weight_type.startswith('min_snr'), 'unsupported loss weight type'
     return args
 
@@ -105,17 +105,17 @@ def main():
             f'MIDSB_{args.bridge_type}_{args.loss_weight_type}{"_condition_" + args.condition if args.condition != "none" else ""}'
             if args.run_name == 'MIDSB' else args.run_name),
         'dataset': args.dataset if not args.resume else None,
-        'scorer_backbone': args.scorer_backbone if not args.resume else None,
-        'denoiser_backbone': args.denoiser_backbone if not args.resume else None,
+        'generator_backbone': args.generator_backbone if not args.resume else None,
+        'discriminator_backbone': args.discriminator_backbone if not args.resume else None,
         'batch_size': args.batch_size if not args.resume else None,
         'evaluate_batch_size': args.evaluate_batch_size if not args.resume else None,
         'learning_rate': args.learning_rate if not args.resume else None,
         'beta': args.beta if not args.resume else None,
-        'denoiser_loss_weight': args.denoiser_loss_weight if not args.resume else None,
+        'discriminator_loss_weight': args.discriminator_loss_weight if not args.resume else None,
         'mean_inverting': not args.no_mean_inverting if not args.resume else None,
         'loss_weight_type': args.loss_weight_type if not args.resume else None,
         'bridge_type': args.bridge_type if not args.resume else None,
-        'denoiser_training_strategy': args.denoiser_training_strategy if not args.resume else None,
+        'discriminator_training_strategy': args.discriminator_training_strategy if not args.resume else None,
         'ot_ode': args.ot_ode if not args.resume else None,
         'condition': args.condition if not args.resume else None,
         'amp': args.amp if not args.resume else None,

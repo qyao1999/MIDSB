@@ -65,7 +65,7 @@ class DiffusionBridge():
             self.config.print()
 
         # Model
-        # Scorer
+        # generator
         if self.config.condition in ['none']:
             input_channels = 2
         elif self.config.condition in ['y', 'mean']:
@@ -75,23 +75,23 @@ class DiffusionBridge():
         else:
             raise NotImplementedError(f'Condition {self.config.condition} is not supported yet.')
 
-        self.model = BackboneRegister.fetch(self.config.scorer_backbone)(input_channels=input_channels)
-        self.model.to(self.device)
+        self.generator = BackboneRegister.fetch(self.config.generator_backbone)(input_channels=input_channels)
+        self.generator.to(self.device)
 
-        # Denoiser
-        if self.config.denoiser_training_strategy != 'none':
-            self.denoiser = BackboneRegister.fetch(self.config.denoiser_backbone)(input_channels=2, discriminative=True)
-            self.denoiser.to(self.device)
-            if self.is_train and not self.is_resume and self.config.denoiser_training_strategy in ['frozen_denoiser', 'pretrained_denoiser']:
-                denoiser_checkpoint_path = os.path.join('pretrained_denoiser', self.config.dataset, f'denoiser_{self.config.denoiser_backbone}.pt')
-                if not os.path.exists(denoiser_checkpoint_path):
-                    raise RuntimeError(f"The denoiser checkpoint at path '{denoiser_checkpoint_path}' does not exist. Please ensure the path is correct or the denoiser has been pre-trained.")
-                checkpoint = torch.load(denoiser_checkpoint_path, map_location='cpu')
-                self.denoiser.load_state_dict(checkpoint)
+        # discriminator
+        if self.config.discriminator_training_strategy != 'none':
+            self.discriminator = BackboneRegister.fetch(self.config.discriminator_backbone)(input_channels=2, discriminative=True)
+            self.discriminator.to(self.device)
+            if self.is_train and not self.is_resume and self.config.discriminator_training_strategy in ['frozen_discriminator', 'pretrained_discriminator']:
+                discriminator_checkpoint_path = os.path.join('pretrained_discriminator', self.config.dataset, f'discriminator_{self.config.discriminator_backbone}.pt')
+                if not os.path.exists(discriminator_checkpoint_path):
+                    raise RuntimeError(f"The discriminator checkpoint at path '{discriminator_checkpoint_path}' does not exist. Please ensure the path is correct or the discriminator has been pre-trained.")
+                checkpoint = torch.load(discriminator_checkpoint_path, map_location='cpu')
+                self.discriminator.load_state_dict(checkpoint)
 
         if local_rank == 0:
             from torchinfo import summary
-            summary(self.model, col_names=("num_params", "params_percent", "trainable"))
+            summary(self.generator, col_names=("num_params", "params_percent", "trainable"))
 
         if self.is_train:
             self.ema = ExponentialMovingAverage(self.parameters(), decay=self.config.ema_rate)
@@ -130,9 +130,9 @@ class DiffusionBridge():
         self.t_max, self.t_min = self.config.t_max, self.config.t_min
 
         if self.is_train and torch.distributed.is_initialized():
-            self.model = DDP(self.model, device_ids=[local_rank], output_device=local_rank)
-            if self.config.denoiser != 'none':
-                self.denoiser = DDP(self.denoiser, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
+            self.generator = DDP(self.generator, device_ids=[local_rank], output_device=local_rank)
+            if self.config.discriminator != 'none':
+                self.discriminator = DDP(self.discriminator, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
 
         self._reduce_op = lambda *args, **kwargs: 0.5 * torch.sum(*args, **kwargs)
 
@@ -141,23 +141,23 @@ class DiffusionBridge():
         self.step_fn = self._step_fn()
 
     def parameters(self):
-        if self.config.denoiser_training_strategy not in ['none', 'frozen_denoiser']:
+        if self.config.discriminator_training_strategy not in ['none', 'frozen_discriminator']:
             def merge_parameters(*iterables):
                 for it in iterables:
                     yield from it
 
-            return merge_parameters(self.model.parameters(), self.denoiser.parameters())
-        return self.model.parameters()
+            return merge_parameters(self.generator.parameters(), self.discriminator.parameters())
+        return self.generator.parameters()
 
     def state(self):
         if not self.is_train:
-            return {'model': self.model.state_dict()}
+            return {'generator': self.generator.state_dict()}
 
-        model_state_dict = self.model.module.state_dict() if isinstance(self.model, DDP) else self.model.state_dict()
-        denoiser_state_dict = self.denoiser.module.state_dict() if isinstance(self.denoiser, DDP) else self.denoiser.state_dict()
-        state = {'ema': self.ema.state_dict(), 'model': model_state_dict, 'optimizer': self.optimizer.state_dict()}
-        if self.config.denoiser_training_strategy != 'none':
-            state['denoiser'] = denoiser_state_dict
+        generator_state_dict = self.generator.module.state_dict() if isinstance(self.generator, DDP) else self.generator.state_dict()
+        discriminator_state_dict = self.discriminator.module.state_dict() if isinstance(self.discriminator, DDP) else self.discriminator.state_dict()
+        state = {'ema': self.ema.state_dict(), 'generator': generator_state_dict, 'optimizer': self.optimizer.state_dict()}
+        if self.config.discriminator_training_strategy != 'none':
+            state['discriminator'] = discriminator_state_dict
         return state
 
     def save(self):
@@ -167,31 +167,31 @@ class DiffusionBridge():
 
     def restore(self):
         checkpoint = torch.load(os.path.join(self.config.run_path, f'best.pt'), map_location="cpu")
-        self.model.load_state_dict(checkpoint['model'])
+        self.generator.load_state_dict(checkpoint['model'])
 
         if self.is_train:
-            if self.config.denoiser != 'none':
-                self.denoiser.load_state_dict(checkpoint['denoiser'])
+            if self.config.discriminator != 'none':
+                self.discriminator.load_state_dict(checkpoint['discriminator'])
             self.optimizer.load_state_dict(checkpoint['optimizer'])
             self.ema.load_state_dict(checkpoint['ema'])
         else:
             if self.config.condition in ['mean', 'both']:
-                self.denoiser.load_state_dict(checkpoint['denoiser'])
+                self.discriminator.load_state_dict(checkpoint['discriminator'])
 
-    def model_fn(self, x, t, cond=None):
+    def generator_fn(self, x, t, cond=None):
         input = torch.cat([x] + cond, dim=1) if cond is not None else x
-        return self.model(input, t)
+        return self.generator(input, t)
 
-    def denoiser_fn(self, x):
-        assert self.config.denoiser_training_strategy != 'none'
-        x_bar = self.denoiser(x)
+    def discriminator_fn(self, x):
+        assert self.config.discriminator_training_strategy != 'none'
+        x_bar = self.discriminator(x)
         return x_bar
 
     def _score_loss_fn(self):
         def _score_loss_fn(x, y, x_bar=None):
             timestep = torch.rand(x.shape[0], device=x.device) * (self.t_max - self.t_min) + self.t_min
 
-            if self.config.denoiser_training_strategy != 'none' and self.config.mean_inverting:
+            if self.config.discriminator_training_strategy != 'none' and self.config.mean_inverting:
                 xt, x0_hat = self.sde.q_sample(t=timestep, x0=x, x1=y, ot_ode=self.config.ot_ode, x0_bar=x_bar)
                 label = self.sde.compute_label(t=timestep, x0=x, xt=xt, x0_hat=x0_hat)
             else:
@@ -206,7 +206,7 @@ class DiffusionBridge():
             }
             cond = condition_map.get(self.config.condition, [])
 
-            score = self.model_fn(xt, timestep, cond=cond)
+            score = self.generator_fn(xt, timestep, cond=cond)
 
             complex_batch_loss = torch.square(torch.abs(score - label))
             complex_loss = torch.mean(self._reduce_op(complex_batch_loss.reshape(complex_batch_loss.shape[0], -1), dim=-1))
@@ -219,20 +219,20 @@ class DiffusionBridge():
     def _step_fn(self):
         def _step_fn(x, y):
             with self.autocast:
-                if self.config.denoiser_training_strategy != 'none':
-                    with torch.set_grad_enabled(self.config.denoiser_training_strategy != 'frozen_denoiser'):
-                        x_bar = self.denoiser_fn(y)
+                if self.config.discriminator_training_strategy != 'none':
+                    with torch.set_grad_enabled(self.config.discriminator_training_strategy != 'frozen_discriminator'):
+                        x_bar = self.discriminator_fn(y)
 
-                    if self.config.denoiser_training_strategy != 'frozen_denoiser':
+                    if self.config.discriminator_training_strategy != 'frozen_discriminator':
                         batch_loss = torch.square(torch.abs(x - x_bar))
-                        denoiser_loss = torch.mean(self._reduce_op(batch_loss.reshape(batch_loss.shape[0], -1), dim=-1))
+                        discriminator_loss = torch.mean(self._reduce_op(batch_loss.reshape(batch_loss.shape[0], -1), dim=-1))
 
                     score_loss = self.score_loss_fn(x, y=y, x_bar=x_bar)
                 else:
                     score_loss = self.score_loss_fn(x, y=y)
 
-                if self.config.denoiser_training_strategy not in ['none', 'frozen_denoiser']:
-                    return (1 - self.config.denoiser_loss_weight) * score_loss + self.config.denoiser_loss_weight * denoiser_loss, {"train/score_loss": score_loss.item(), "train/denoiser_loss": denoiser_loss.item()}
+                if self.config.discriminator_training_strategy not in ['none', 'frozen_discriminator']:
+                    return (1 - self.config.discriminator_loss_weight) * score_loss + self.config.discriminator_loss_weight * discriminator_loss, {"train/score_loss": score_loss.item(), "train/discriminator_loss": discriminator_loss.item()}
                 else:
                     return score_loss, {"train/score_loss": score_loss.item()}
 
@@ -271,7 +271,7 @@ class DiffusionBridge():
             # Train
             if self.ema.collected_params is not None:
                 self.ema.restore(self.parameters())
-            self.model.train()
+            self.generator.train()
 
             if self.local_rank == 0:
                 train_bar = ProcessBar(train_dataloader, len(train_dataloader) // self.config.logging_per_step) if self.local_rank == 0 else train_dataloader
@@ -323,7 +323,7 @@ class DiffusionBridge():
                 # valid
                 self.ema.store(self.parameters())  # store current params in EMA
                 self.ema.copy_to(self.parameters())  # copy EMA parameters over current params for evaluation
-                self.model.eval()
+                self.generator.eval()
                 valid_loss = 0.0
                 valid_step = 0
                 with torch.no_grad():
@@ -418,8 +418,8 @@ class DiffusionBridge():
         condition_map = {
             'none': [],
             'y': [x],
-            'mean': [self.denoiser_fn(x)],
-            'both': [self.denoiser_fn(x), x]
+            'mean': [self.discriminator_fn(x)],
+            'both': [self.discriminator_fn(x), x]
         }
         cond = condition_map.get(self.config.condition, [])
 
@@ -430,7 +430,7 @@ class DiffusionBridge():
         def pred_x0_fn(xt, timestep):
             global NFE
             timestep = torch.full((xt.shape[0],), timestep, device=self.device, dtype=torch.float32)
-            out = self.model_fn(xt, timestep, cond=cond)
+            out = self.generator_fn(xt, timestep, cond=cond)
             NFE = NFE + 1
             return self.sde.compute_pred_x0(t=timestep, xt=xt, net_out=out)
 
