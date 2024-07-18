@@ -19,7 +19,12 @@ Official Pytorch Implementation of [Generative Speech Enhancement using Mean-Inv
 
 To train, run
 ```bash
-python train.py --dataset <target_dataset> --gpus 0,1,2,3 
+torchrun --nproc_per_node=4 train_discriminator.py --dataset <target_dataset> --gpus 0,1,2,3 
+```
+
+To train, run
+```bash
+torchrun --nproc_per_node=4 train.py --dataset <target_dataset> --gpus 0,1,2,3 
 ```
 Here are some key arguments you can modify:
 - `--config_path`: Path to the YAML configuration file. The default is `config/default.yml`.

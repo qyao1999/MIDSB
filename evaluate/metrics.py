@@ -13,7 +13,7 @@ class AudioMetric:
     def __init__(self, **kwargs):
         pass
 
-    def calculate(self, ref_wav, deg_wav, noise_wav, wav_path,sample_rate=16000, **kwargs) -> dict:
+    def calculate(self, ref_wav, deg_wav, noise_wav, wav_path, sample_rate=16000, **kwargs) -> dict:
         raise NotImplementedError("Subclasses must implement this method")
 
     @classmethod
