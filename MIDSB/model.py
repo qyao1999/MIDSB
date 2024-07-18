@@ -137,7 +137,7 @@ class DiffusionBridge():
         self._reduce_op = lambda *args, **kwargs: 0.5 * torch.sum(*args, **kwargs)
 
         # Function
-        self.score_loss_fn = self._score_loss_fn()
+        self.generator_loss_fn = self._generator_loss_fn()
         self.step_fn = self._step_fn()
 
     def parameters(self):
@@ -187,8 +187,8 @@ class DiffusionBridge():
         x_bar = self.discriminator(x)
         return x_bar
 
-    def _score_loss_fn(self):
-        def _score_loss_fn(x, y, x_bar=None):
+    def _generator_loss_fn(self):
+        def _generator_loss_fn(x, y, x_bar=None):
             timestep = torch.rand(x.shape[0], device=x.device) * (self.t_max - self.t_min) + self.t_min
 
             if self.config.discriminator_training_strategy != 'none' and self.config.mean_inverting:
@@ -210,11 +210,11 @@ class DiffusionBridge():
 
             complex_batch_loss = torch.square(torch.abs(score - label))
             complex_loss = torch.mean(self._reduce_op(complex_batch_loss.reshape(complex_batch_loss.shape[0], -1), dim=-1))
-            score_loss = complex_loss
+            generator_loss = complex_loss
 
-            return score_loss
+            return generator_loss
 
-        return _score_loss_fn
+        return _generator_loss_fn
 
     def _step_fn(self):
         def _step_fn(x, y):
@@ -227,14 +227,14 @@ class DiffusionBridge():
                         batch_loss = torch.square(torch.abs(x - x_bar))
                         discriminator_loss = torch.mean(self._reduce_op(batch_loss.reshape(batch_loss.shape[0], -1), dim=-1))
 
-                    score_loss = self.score_loss_fn(x, y=y, x_bar=x_bar)
+                    generator_loss = self.generator_loss_fn(x, y=y, x_bar=x_bar)
                 else:
-                    score_loss = self.score_loss_fn(x, y=y)
+                    generator_loss = self.generator_loss_fn(x, y=y)
 
                 if self.config.discriminator_training_strategy not in ['none', 'frozen_discriminator']:
-                    return (1 - self.config.discriminator_loss_weight) * score_loss + self.config.discriminator_loss_weight * discriminator_loss, {"train/score_loss": score_loss.item(), "train/discriminator_loss": discriminator_loss.item()}
+                    return (1 - self.config.discriminator_loss_weight) * generator_loss + self.config.discriminator_loss_weight * discriminator_loss, {"train/generator_loss": generator_loss.item(), "train/discriminator_loss": discriminator_loss.item()}
                 else:
-                    return score_loss, {"train/score_loss": score_loss.item()}
+                    return generator_loss, {"train/generator_loss": generator_loss.item()}
 
         return _step_fn
 
