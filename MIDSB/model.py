@@ -395,7 +395,7 @@ class DiffusionBridge():
             clean_sig, enhanced_sig = x.cpu().squeeze().numpy(), x_bar.type(torch.float32).cpu().squeeze().numpy()
 
             for metric in metrics.values():
-                metric_res = metric.compute(ref_wav=clean_sig, deg_wav=enhanced_sig, sample_rate=self.config.sample_rate)
+                metric_res = metric.compute(ref_wav=clean_sig, deg_wav=enhanced_sig, sample_rate=self.config.data.get('sample_rate', 16000))
                 for item in metric_res.keys():
                     if item not in result.keys():
                         result[item] = 0.0

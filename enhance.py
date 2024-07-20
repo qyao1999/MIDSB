@@ -30,13 +30,13 @@ def main(config, noisy_path, test_path=None):
             audio_path = os.path.join(config.output_path, f'{audio_name}.wav')
             if not os.path.exists(audio_path) or config.overwrite:
                 x, xs, pred_x0s = bridge.enhancement(x, num_step=config.num_step, sampling_method=config.sampling_method, skip_type=config.skip_type, ot_ode=config.eval_ot_ode)
-                torchaudio.save(audio_path, x.type(torch.float32).cpu().squeeze().unsqueeze(0), config.sample_rate)
+                torchaudio.save(audio_path, x.type(torch.float32).cpu().squeeze().unsqueeze(0), config.data.get('sample_rate', 16000))
     Logger.info('Enhancement process has successfully completed.')
 
     if config.calc_metrics:
         if test_path is not None:
             from calc_metircs import evaluate_metrics
-            evaluate_metrics(test_path, config.output_path, sample_rate = config.sample_rate, max_workers=config.max_workers, overwrite=config.overwrite)
+            evaluate_metrics(test_path, config.output_path, sample_rate = config.data.get('sample_rate', 16000), max_workers=config.max_workers, overwrite=config.overwrite)
         else:
             raise ValueError('test_path is not provided')
 
@@ -93,7 +93,7 @@ if __name__ == '__main__':
         "device": torch.device('cuda:0'),
         "reverse": args.reverse,
         "calc_metrics": args.calc_metrics,
-        "sample_rate": default_config.sample_rate,
+        "sample_rate": default_config.data.get('sample_rate', 16000),
         "output_dir": os.path.join(default_config.output_dir, args.run_name),
         "max_workers": args.max_workers
     }
