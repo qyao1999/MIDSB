@@ -1,3 +1,7 @@
 /pretrained_discriminator/**
 /.idea
 /runs
+.ipynb_checkpoints/
+__pycache__/
+/wandb
+autodl_*.yml
