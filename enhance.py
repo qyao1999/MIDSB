@@ -42,6 +42,7 @@ def main(config, noisy_path, test_path=None):
 
 
 if __name__ == '__main__':
+    default_config = read_config_from_yaml('config/default_run.yml')
     parser = argparse.ArgumentParser()
 
     # Run Management
@@ -69,12 +70,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    dataset_params = read_config_from_yaml(config_path="config/dataset.yml")
-    default_config = read_config_from_yaml('config/default.yml')
 
-    if args.dataset in dataset_params.dataset.keys():
-        noisy_path = os.path.join(dataset_params.dataset[args.dataset], 'test', 'noisy')
-        test_path = os.path.join(dataset_params.dataset[args.dataset], 'test')
+    if args.dataset in default_config.dataset.keys():
+        noisy_path = os.path.join(default_config.dataset[args.dataset], 'test', 'noisy')
+        test_path = os.path.join(default_config.dataset[args.dataset], 'test')
     elif args.noisy_path != '':
         noisy_path = args.noisy_path
         test_path = args.test_path if args.test_path != '' else None

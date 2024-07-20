@@ -1,6 +1,6 @@
 inherit: 'data_representation.yml'
 
-dataset:
+datasets:
   voicebank: '/data/SpeechEnhancement/VoiceBank+DEMAND/data/'
   timit+wham: '/data/SpeechEnhancement/timit+wham_wham/audio/'
 

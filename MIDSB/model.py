@@ -240,7 +240,7 @@ class DiffusionBridge():
         return _step_fn
 
     def train_dataloader(self, ):
-        train_dataset = ComplexSpec(dataset=self.config.dataset, subset='train', shuffle_spec=True, return_spec=True, dummy=self.config.dummy)
+        train_dataset = ComplexSpec(config=self.config, dataset=self.config.dataset, subset='train', shuffle_spec=True, return_spec=True, dummy=self.config.dummy)
 
         if torch.distributed.is_initialized():
             self.train_sampler = DistributedSampler(train_dataset, shuffle=True)
@@ -249,7 +249,7 @@ class DiffusionBridge():
             return torch.utils.data.DataLoader(train_dataset, batch_size=self.config.batch_size_per_gpu, shuffle=True, num_workers=self.config.num_workers, pin_memory=True)
 
     def valid_dataloader(self, ):
-        valid_dataset = ComplexSpec(dataset=self.config.dataset, subset='valid', shuffle_spec=True, return_spec=True, dummy=self.config.dummy)
+        valid_dataset = ComplexSpec(config=self.config, dataset=self.config.dataset, subset='valid', shuffle_spec=True, return_spec=True, dummy=self.config.dummy)
         return torch.utils.data.DataLoader(valid_dataset, batch_size=self.config.evaluate_batch_size, shuffle=False, num_workers=self.config.num_workers, pin_memory=True, )
 
     def prepair_data(self, clean_b, noisy_b):
@@ -378,7 +378,7 @@ class DiffusionBridge():
             wandb.log_artifact(model_artifact)
 
     def evaluate_metrics(self, subset='valid', epoch=None, n_samples=0, sampling_method='ddim', num_step=5):
-        dataset = ComplexSpec(dataset=self.config.dataset, subset=subset, return_raw=True)
+        dataset = ComplexSpec(config=self.config, dataset=self.config.dataset, subset=subset, return_raw=True)
 
         if n_samples < 1:
             n_samples = len(dataset)

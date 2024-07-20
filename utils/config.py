@@ -35,7 +35,7 @@ class BaseConfiguer:
         _origin = get_yaml_data(file_path)
         _config = OrderedDict()
         if 'inherit' in _origin:
-            if isinstance(_origin['inherit'], str) or isinstance(_origin['inherit'], dict):
+            if isinstance(_origin['inherit'], str) or isinstance(_origin['inherit'], list):
                 inherit_paths = _origin['inherit']
                 if isinstance(inherit_paths, str):
                     inherit_paths = [inherit_paths]

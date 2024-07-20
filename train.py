@@ -8,12 +8,11 @@ from MIDSB.model import DiffusionBridge
 from utils.config import read_config_from_yaml
 
 os.environ['OMP_NUM_THREADS'] = '4'
+config_path = 'config/default_run.yml'
 def parse_args():
-    default_config = read_config_from_yaml('config/default.yml')
+    default_config = read_config_from_yaml(config_path)
 
     parser = argparse.ArgumentParser(description="Argument parser for model training and evaluation.")
-    parser.add_argument('--config_path', type=str, default='config/default.yml',
-                        help="Path to the configuration file")
     parser.add_argument('--run_name', type=str, default=default_config.run_name,
                         help="Name for the current run (used for logging and checkpointing)")
 
@@ -86,6 +85,7 @@ def configure_gpus(args):
         os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(str(g) for g in gpu_list)
         torch.distributed.init_process_group('nccl')
     local_rank = torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
+    torch.cuda.set_device(local_rank)
     return local_rank
 
 
@@ -96,7 +96,7 @@ def main():
     if args.float32_precision_high:
         torch.set_float32_matmul_precision('high')
 
-    config = read_config_from_yaml(args.config_path)
+    config = read_config_from_yaml(config_path)
 
     config_updates = {
         'wandb_log': args.wandb_log,

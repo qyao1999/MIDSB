@@ -149,7 +149,7 @@ def main(config, local_rank=0):
 
 
 if __name__ == '__main__':
-    default_config = read_config_from_yaml('config/default.yml')
+    default_config = read_config_from_yaml('config/default_run.yml')
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default=default_config.dataset, help="Dataset to use for training and evaluation")

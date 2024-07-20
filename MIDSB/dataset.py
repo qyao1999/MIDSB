@@ -1,14 +1,13 @@
-import os
 from glob import glob
+import os
 
 import numpy as np
 import torch
-import torch.nn.functional as F
+from torch import nn
 import torchaudio
-from torch.utils.data import Dataset
-
 from utils.config import read_config_from_yaml
-
+from torch.utils.data import Dataset
+import torch.nn.functional as F
 
 def get_window(window_type, window_length):
     if window_type == 'sqrthann':
@@ -28,14 +27,16 @@ class STFTUtil():
     windows = None
 
     @classmethod
-    def initial(cls):
-        params = read_config_from_yaml(config_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "../config/data_representation.yml"))
-        cls.n_fft = params.n_fft
-        cls.num_frames = params.num_frames
-        cls.hop_length = params.hop_length
-        cls.spec_abs_exponent = params.spec_abs_exponent
-        cls.spec_factor = params.spec_factor
-        cls.window = get_window(params.window, cls.n_fft)
+    def initial(cls, config=None):
+        if config is None:
+            config = read_config_from_yaml(config_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "../config/data_representation.yml"))
+
+        cls.n_fft = config.data.get('n_fft')
+        cls.num_frames = config.data.get('num_frames')
+        cls.hop_length = config.data.get('hop_length')
+        cls.spec_abs_exponent = config.data.get('spec_abs_exponent')
+        cls.spec_factor = config.data.get('spec_factor')
+        cls.window = get_window(config.data.get('window'), cls.n_fft)
         cls.windows = {}
 
     @classmethod
@@ -47,9 +48,9 @@ class STFTUtil():
         return window
 
     @classmethod
-    def stft(cls, x, transform=True):
+    def stft(cls, x, transform=True, config=None):
         if cls.num_frames is None:
-            cls.initial()
+            cls.initial(config=config)
 
         window = cls._get_window(x)
         X = torch.stft(x, n_fft=cls.n_fft, hop_length=cls.hop_length, window=window, center=True, return_complex=True)
@@ -58,9 +59,9 @@ class STFTUtil():
         return X
 
     @classmethod
-    def istft(cls, X, transform=True, length=None):
+    def istft(cls, X, transform=True, length=None, config=None):
         if cls.num_frames is None:
-            cls.initial()
+            cls.initial(config=config)
         window = cls._get_window(X)
         if transform:
             X = cls.invert_magnitude_warping(X)
@@ -114,7 +115,7 @@ def pad_spec(Y):
 
 class AudioFolder(Dataset):
     def __init__(self, audio_path_or_pt_file, sample_rate=16000, return_path=False, reverse=False):
-        assert os.path.exists(audio_path_or_pt_file)
+        assert os.path.exists(audio_path_or_pt_file), audio_path_or_pt_file
 
         self.audio_files = None
         self.audio_paths = None
@@ -180,24 +181,23 @@ class AudioFolder(Dataset):
 
 
 class ComplexSpec(Dataset):
-    def __init__(self, dataset='voicebank', subset='train', shuffle_spec=None, normalize_audio=None, return_raw = False, return_spec=True, dummy=False):
-        params = read_config_from_yaml(config_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "../config/dataset.yml"))
-        self.sample_rate = params.sample_rate
-        self.audio_length = params.audio_length
+    def __init__(self, config, dataset='voicebank', subset='train', shuffle_spec=None, normalize_audio=None, return_raw = False, return_spec=True, dummy=False):
+        self.sample_rate = config.data.get('sample_rate', 16000)
+        self.audio_length = config.data.get('max_audio_length', 32000)
         assert subset in ['train', 'valid', 'test']
 
         assert dataset in ['voicebank','timit+wham'], f'Dataset {dataset} is not supported yet.'
-        self.data_dir = params.dataset[dataset]
+        self.data_dir = config.datasets[dataset]
         self.subset = subset
-        self.spatial_channels = params.spatial_channels
-        self.num_frames = params.num_frames
-        self.hop_length = params.hop_length
+        self.spatial_channels = config.data.get('spatial_channels', 1)
+        self.num_frames = config.data.get('num_frames', 256)
+        self.hop_length = config.data.get('hop_length', 128)
 
         self.clean_files = AudioFolder(audio_path_or_pt_file=os.path.join(self.data_dir, subset, 'clean'), sample_rate=self.sample_rate)
         self.noisy_files = AudioFolder(audio_path_or_pt_file=os.path.join(self.data_dir, subset, 'noisy'), sample_rate=self.sample_rate)
 
         self.shuffle_spec = shuffle_spec
-        self.normalize_audio = params.normalize_audio if normalize_audio is None else normalize_audio
+        self.normalize_audio =  config.data.get('normalize_audio', True) if normalize_audio is None else normalize_audio
         self.return_spec = return_spec
         self.return_raw = return_raw
         self.dummy = dummy
@@ -248,7 +248,7 @@ class ComplexSpec(Dataset):
 
         if self.return_spec:
             X, Y = self.stft(x), self.stft(y)
-            return X, Y
+            return x, normfac, X, Y
 
         return x, y
 
@@ -256,20 +256,4 @@ class ComplexSpec(Dataset):
         if self.dummy:
             return 16
         return len(self.noisy_files)
-
-
-if __name__ == '__main__':
-    params = read_config_from_yaml(config_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "../config/dataset.yml"))
-    sample_rate = params.sample_rate
-    audio_length = params.audio_length
-
-    data_dir = params.dataset['voicebank']
-    subset = "train"
-    spatial_channels = params.spatial_channels
-
-
-    print(len(AudioFolder(audio_path_or_pt_file=os.path.join(data_dir, "train", 'clean'), sample_rate=sample_rate)))
-    print(len(AudioFolder(audio_path_or_pt_file=os.path.join(data_dir, "valid", 'clean'), sample_rate=sample_rate)))
-    print(len(AudioFolder(audio_path_or_pt_file=os.path.join(data_dir, "test", 'clean'), sample_rate=sample_rate)))
-
 

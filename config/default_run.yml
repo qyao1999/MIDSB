@@ -1,3 +1,5 @@
+inherit: 'default_dataset.yml'
+
 run_name: 'MIDSB'
 
 dataset: 'voicebank'
@@ -8,9 +10,6 @@ discriminator_backbone: 'ncsnpp_base'
 beta: 2.0e-2
 bridge_type: 'VP'
 condition: 'none'
-
-discriminator_training_strategy: 'frozen_discriminator'
-discriminator_loss_weight: 0.0
 loss_weight_type: 'constant'
 
 learning_rate: 1.0e-4
