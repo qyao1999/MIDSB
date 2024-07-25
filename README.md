@@ -11,15 +11,16 @@ Official Pytorch Implementation of [Generative Speech Enhancement using Mean-Inv
 
 # Datasets
 
+We use `Voicebank+DEMAND` and `TIMIT+WHAM!` for training and testing. 
 
-# Pre-trained models
+**(IMPORTANT)** Please set the path of these two dataset directories by the `datasets` attribute in `config/default_dataset.yml`. You can also add the paths to your custom dataset directories. 
 
 
 # Training
 
-To train, run
+To pre-train the discriminator, run
 ```bash
-torchrun --nproc_per_node=4 train_discriminator.py --dataset <target_dataset> --gpus 0,1,2,3 
+torchrun --nproc_per_node=4 train_discriminator.py --discriminator_backbone <choosed_backbone> --dataset <target_dataset> --gpus 0,1,2,3 
 ```
 
 To train, run
@@ -46,9 +47,28 @@ For a full list of arguments, run `python train.py --help`.
 
 For inference, run
 ```bash
-python enhancement.py --run_name <your_run_name> --dataset <target_dataset> --sampling_method hybrid --skip_type time_uniform --sample_step 3 --calc_metrics --max_workers 8
+python enhancement.py --run_name <your_run_name> --dataset <target_dataset> --sampling_method hybrid --skip_type time_uniform --NFE 3 --calc_metrics --max_workers 8
 ```
 
-# Evaluating Metrics
+Here are some key arguments you can modify:
+- `--dataset`: Dataset to use for inference.
+- `--run_name`: Name of the run to evaluate.
+- `--sampling_method`: Sampling method for inference. Available options are `hybrid`, `ddim`.
+- `--skip_type`: Type of skip sampling for inference. Available options are `time_uniform`, `logSNR`, `time_quadratic`.
+- `--NFE`: The number of function evaluations for inference.
+- `--calc_metrics`: Whether to calculate metrics.
 
-# Citation
+For a full list of arguments, run `python enhancement.py --help`.
+
+# Evaluating Metrics
+You can also evaluate the metrics by running
+
+```bash
+python calculate_metrics.py --test_dir <path_to_your_testset> --enhanced_dir <path_to_your_enhanced_audios> --suffix .wav
+```
+Here are some key arguments you can modify:
+- `--test_dir`: Path to the directory containing the testset.
+- `--enhanced_dir`: Path to the directory containing the enhanced audios.
+- `--suffix`: Suffix of the audio files.
+- 
+For a full list of arguments, run `python calculate_metrics.py --help`.

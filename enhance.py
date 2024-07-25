@@ -29,7 +29,7 @@ def main(config, noisy_path, test_path=None):
             x, audio_name = _x.squeeze(0), _audio_name[0]
             audio_path = os.path.join(config.output_path, f'{audio_name}.wav')
             if not os.path.exists(audio_path) or config.overwrite:
-                x, xs, pred_x0s = bridge.enhancement(x, num_step=config.num_step, sampling_method=config.sampling_method, skip_type=config.skip_type, ot_ode=config.eval_ot_ode)
+                x, xs, pred_x0s = bridge.enhancement(x, num_step=config.NFE, sampling_method=config.sampling_method, skip_type=config.skip_type, ot_ode=config.eval_ot_ode)
                 torchaudio.save(audio_path, x.type(torch.float32).cpu().squeeze().unsqueeze(0), config.data.get('sample_rate', 16000))
     Logger.info('Enhancement process has successfully completed.')
 
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     # Sampling Parameters
     parser.add_argument("--sampling_method", type=str, default="hybrid", help="Sampling method: ddim, hybrid, etc.")
     parser.add_argument("--skip_type", type=str, default="time_uniform", help="How steps are skipped during sampling.")
-    parser.add_argument("--num_step", type=int, default=3, help="The number of function evaluations.")
+    parser.add_argument("--NFE", type=int, default=3, help="The number of function evaluations.")
 
     # Evaluation Flags
     parser.add_argument("--calc_metrics", action="store_true", help="Whether to calculate metrics.")
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     eval_config = {
         "run_path": os.path.join(default_config.run_dir, args.run_name),
         "checkpoint_name": "best.pt",
-        "num_step": args.num_step,
+        "NFE": args.NFE,
         "sampling_method": args.sampling_method,
         "skip_type": args.skip_type,
         "overwrite": args.overwrite,
@@ -100,7 +100,7 @@ if __name__ == '__main__':
     config = read_config_from_yaml(config_path=os.path.join(eval_config['run_path'], 'config.yml'))
     config.update(eval_config)
 
-    config.name = f'eval_step={config.num_step}_method={config.sampling_method}_{config.skip_type}'
+    config.name = f'eval_step={config.NFE}_method={config.sampling_method}_{config.skip_type}'
     config.output_path = os.path.join(config.output_dir, os.path.basename(config.run_path), config.name)
     config.train = False
     config.resume = True
