@@ -71,9 +71,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    if args.dataset in default_config.dataset.keys():
-        noisy_path = os.path.join(default_config.dataset[args.dataset], 'test', 'noisy')
-        test_path = os.path.join(default_config.dataset[args.dataset], 'test')
+    if args.dataset in default_config.datasets.keys():
+        noisy_path = os.path.join(default_config.datasets[args.dataset], 'test', 'noisy')
+        test_path = os.path.join(default_config.datasets[args.dataset], 'test')
     elif args.noisy_path != '':
         noisy_path = args.noisy_path
         test_path = args.test_path if args.test_path != '' else None
@@ -101,7 +101,7 @@ if __name__ == '__main__':
     config.update(eval_config)
 
     config.name = f'eval_step={config.NFE}_method={config.sampling_method}_{config.skip_type}'
-    config.output_path = os.path.join(config.output_dir, os.path.basename(config.run_path), config.name)
+    config.output_path = os.path.join(config.output_dir, config.name)
     config.train = False
     config.resume = True
     config.amp = False

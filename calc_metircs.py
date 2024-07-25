@@ -42,8 +42,8 @@ def evaluate(metrics:dict, clean_dir:str, noisy_dir:str, enhanced_dir:str, filen
 
 
 def evaluate_metrics(test_dir:str, enhanced_dir:str, suffix:str='.wav', sample_rate:int=16000, max_workers:int=8, overwrite:bool=True):
-    Logger.info(f"Enhanced Dictionary:{enhanced_dir}")
-    Logger.info(f"Test Dictionary:{test_dir}")
+    Logger.info(f"Enhanced Dictionary: \033[95m{enhanced_dir}\033[0m.")
+    Logger.info(f"Test Dictionary: \033[95m{test_dir}\033[0m.")
 
     output_json_path = join(enhanced_dir, "metrics.json")
     results = None
@@ -51,7 +51,7 @@ def evaluate_metrics(test_dir:str, enhanced_dir:str, suffix:str='.wav', sample_r
         # Load and print the existing JSON data
         with open(output_json_path, "r") as json_file:
             results = json.load(json_file)
-        Logger.info(f"Results are loaded from existing JSON file `{output_json_path}`")
+        Logger.info(f"Results are loaded from existing JSON file: \033[95m`{output_json_path}`\033[0m.")
     else:
         clean_dir = join(test_dir, "clean/")
         noisy_dir = join(test_dir, "noisy/")
@@ -100,13 +100,11 @@ def evaluate_metrics(test_dir:str, enhanced_dir:str, suffix:str='.wav', sample_r
             results["Mean"].append(np.float64(mean))
             results["Std"].append(np.float64(std))
 
-        # 保存到JSON文件
         output_json_path = join(enhanced_dir, "metrics.json")
         with open(output_json_path, "w") as json_file:
             json.dump(results, json_file, indent=4)
         Logger.info(f"Results have been saved to {output_json_path}")
 
-    # 使用tabulate打印结果
     headers = ["Metric", "Mean", "Std"]
     Logger.info("\nSummary of Results:")
     print(tabulate(results, headers=headers, floatfmt=".4f", numalign="right"))
@@ -125,7 +123,7 @@ if __name__ == '__main__':
         help='Directory path where the enhanced audio files are located. These are the files that will be evaluated against the original clean audio files.'
     )
     parser.add_argument(
-        "--suffix", type=str, default='_enhance.wav',
+        "--suffix", type=str, default='.wav',
         help='Suffix used to identify enhanced audio files within the `enhanced_dir`. This should match the naming convention of your enhanced files.'
     )
     parser.add_argument(

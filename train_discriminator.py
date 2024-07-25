@@ -6,12 +6,12 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DistributedSampler
 from torch_ema import ExponentialMovingAverage
 from tqdm import tqdm
-from yotool.util.logger import Logger
 
 from MIDSB.dataset import ComplexSpec, STFTUtil
 from backbone import BackboneRegister
 from evaluate import MetricRegister
 from utils.config import Config, read_config_from_yaml
+from utils.log import Logger
 
 
 def main(config, local_rank=0):
@@ -30,7 +30,7 @@ def main(config, local_rank=0):
 
     optimizer = torch.optim.Adam(discriminator.parameters(), lr=config.learning_rate)
 
-    train_dataset = ComplexSpec(dataset=config.dataset, subset='train', shuffle_spec=True, return_spec=True)
+    train_dataset = ComplexSpec(config, dataset=config.dataset, subset='train', shuffle_spec=True, return_spec=True)
 
     if torch.distributed.is_initialized():
         train_sampler = DistributedSampler(train_dataset, shuffle=True)
@@ -49,7 +49,7 @@ def main(config, local_rank=0):
             num_workers=config.num_workers,
             pin_memory=True)
 
-    valid_dataset = ComplexSpec(dataset=config.dataset, subset='valid', shuffle_spec=False, return_spec=True)
+    valid_dataset = ComplexSpec(config, dataset=config.dataset, subset='valid', shuffle_spec=False, return_spec=True)
     valid_dataloader = torch.utils.data.DataLoader(
         valid_dataset,
         batch_size=16,
@@ -110,12 +110,12 @@ def main(config, local_rank=0):
                     valid_total_loss += valid_loss.item()
 
             valid_loss = valid_total_loss / len(valid_dataloader)
-            dataset = ComplexSpec(subset='valid', return_raw=True)
+            dataset = ComplexSpec(config, subset='valid', return_raw=True)
 
-            m_pesq, m_estoi, m_si_sdr = 0.0, 0.0, 0.0
+            result = {}
             n_samples = 20
 
-            pesq_fn, estoi_fn, si_sdr_fn = MetricRegister.fetch('pesq'), MetricRegister.fetch('estoi'), MetricRegister.fetch('si_sdr')
+            metrics = MetricRegister.fetch(['pesq','estoi','si_sdr'])
             with torch.no_grad():
                 for i in tqdm(range(0, n_samples), desc=f'Evaluate Metrics', leave=False, ncols=200):
                     x, y = dataset[i * (len(dataset) // (n_samples - 1))]
@@ -124,21 +124,25 @@ def main(config, local_rank=0):
                     x_hat = invert(x_hat)
                     clean_sig, enhanced_sig = x.detach().squeeze().numpy(), x_hat.type(torch.float32).detach().squeeze().numpy()
 
-                    m_pesq += pesq_fn(ref_wav = clean_sig, deg_wav = enhanced_sig, sample_rate = 16000)
-                    m_estoi += estoi_fn(ef_wav = clean_sig, deg_wav = enhanced_sig, sample_rate = 16000)
-                    m_si_sdr += si_sdr_fn(ef_wav = clean_sig, deg_wav = enhanced_sig, sample_rate = 16000)
-                m_pesq, m_estoi, m_si_sdr = m_pesq / n_samples, m_estoi / n_samples, m_si_sdr / n_samples
+                    for metric in metrics.values():
+                        metric_res = metric.compute(ref_wav=clean_sig, deg_wav=enhanced_sig, sample_rate=config.data.get('sample_rate', 16000))
+                        for item in metric_res.keys():
+                            if item not in result.keys():
+                                result[item] = 0.0
+                            result[item] += metric_res[item]
 
-            result = {'pesq': m_pesq, 'estoi': m_estoi, 'si_sdr': m_si_sdr}
+                result = {k: v / n_samples for k, v in result.items()}
+
+            result = {'pesq': result['PESQ'], 'estoi': result['ESTOI'], 'si_sdr': result['SI_SDR']}
             if valid_loss < best_valid_loss:
                 best_valid_loss = valid_loss
                 Logger.info(f'Epoch {epoch} - Best Valid Loss {best_valid_loss}. Save checkpoint to \033[95m{os.path.abspath(config.output_path)}\033[0m')
                 earlystop_counter = 0
                 Logger.info(result)
                 if torch.distributed.is_initialized():
-                    torch.save(discriminator.module.state_dict(), os.path.join(config.output_path, config.dataset, f'discriminator_{config.discriminator_backbone}1.pt'))
+                    torch.save(discriminator.module.state_dict(), os.path.join(config.output_path, config.dataset, f'discriminator_{config.discriminator_backbone}.pt'))
                 else:
-                    torch.save(discriminator.state_dict(), os.path.join(config.output_path, config.dataset, f'discriminator_{config.discriminator_backbone}1.pt'))
+                    torch.save(discriminator.state_dict(), os.path.join(config.output_path, config.dataset, f'discriminator_{config.discriminator_backbone}.pt'))
             else:
                 earlystop_counter += 1
                 Logger.info(f'Epoch {epoch} - Valid Loss {valid_loss} Best Valid Loss {best_valid_loss}')
@@ -168,7 +172,8 @@ if __name__ == '__main__':
         torch.distributed.init_process_group('nccl')
     local_rank = torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
 
-    config = Config({
+    config = read_config_from_yaml('config/default_dataset.yml')
+    config.update({
         'device': torch.device('cuda', local_rank),
         'discriminator_backbone': args.discriminator_backbone,
         'batch_size': args.batch_size // gpu_num,
@@ -179,7 +184,6 @@ if __name__ == '__main__':
         'ema_rate': 0.999,
         'ema': True,
         'patience': 10,
-        'output_path': 'pretrained_discriminator/',
-    })
+        'output_path': 'pretrained_discriminator/',})
     config.print()
     main(config, local_rank)

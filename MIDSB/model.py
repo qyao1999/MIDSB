@@ -168,7 +168,7 @@ class DiffusionBridge():
 
     def restore(self):
         checkpoint = torch.load(os.path.join(self.config.run_path, f'best.pt'), map_location="cpu")
-        self.generator.load_state_dict(checkpoint['model'])
+        self.generator.load_state_dict(checkpoint['generator'])
 
         if self.is_train:
             if self.config.discriminator != 'none':

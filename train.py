@@ -132,7 +132,6 @@ def main():
     config_updates = {k: v for k, v in config_updates.items() if v is not None}
     # 使用update方法更新config
     config.update(config_updates)
-    config.print()
     bridge = DiffusionBridge(config, local_rank)
     bridge.train()
 

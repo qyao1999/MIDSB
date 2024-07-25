@@ -248,7 +248,7 @@ class ComplexSpec(Dataset):
 
         if self.return_spec:
             X, Y = self.stft(x), self.stft(y)
-            return x, normfac, X, Y
+            return  X, Y
 
         return x, y
 

@@ -12,13 +12,37 @@ Audio samples are available at [Demo Page](https://qyao1999.github.io/MIDSB/) .
 
 # Installation
 
+- Create a new virtual environment with `Python >= 3.8`.
+- Install the required packages by running
+
+```bash
+pip install -r requirements.txt
+```
+
+**(IMPORTANT)** recommend `torch >= 2.2.0`
+
+- (optional) if using W&B logging
+    - Set up a [wandb.ai](https://wandb.ai/) account
+    - Login in via `wandb login <your_api_key>`
 
 # Datasets
 
 We use `Voicebank+DEMAND` and `TIMIT+WHAM!` for training and testing. 
 
 **(IMPORTANT)** Please set the path of these two dataset directories by the `datasets` attribute in `config/default_dataset.yml`. You can also add the paths to your custom dataset directories. 
+Each dataset directories should contain the following structure:
 
+```angular2html
+- train
+    - clean
+    - noisy
+- valid
+    - clean
+    - noisy
+- test
+    - clean
+    - noisy
+```
 
 # Training
 
