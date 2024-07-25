@@ -128,9 +128,7 @@ def main():
         'gradient_accumulation_steps': args.gradient_accumulation_steps
     }
 
-    # 移除值为None的键值对
     config_updates = {k: v for k, v in config_updates.items() if v is not None}
-    # 使用update方法更新config
     config.update(config_updates)
     bridge = DiffusionBridge(config, local_rank)
     bridge.train()
